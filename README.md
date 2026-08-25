@@ -25,7 +25,7 @@ Splash · Login · Dashboard · Payment · History · Transaction detail · Rece
 ## Run
 
 1. Start backend on port 8000  
-2. Open `App/CryptoPOS` in Android Studio  
+2. Open `Crypto/` in Android Studio  
 3. Run on emulator (API uses `http://10.0.2.2:8000/api/v1/`)  
 4. For a physical device, change `API_BASE_URL` in `app/build.gradle.kts` to your LAN IP  
 
