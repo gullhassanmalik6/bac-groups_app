@@ -3,12 +3,14 @@ package com.cryptopos.pos.features.transactions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cryptopos.pos.core.common.toUserMessage
-import com.cryptopos.pos.domain.model.PaymentTransaction
+import com.cryptopos.pos.domain.history.HistoryFilter
+import com.cryptopos.pos.domain.history.matches
+import com.cryptopos.pos.domain.model.HistorySource
+import com.cryptopos.pos.domain.model.HistoryTransaction
+import com.cryptopos.pos.domain.repository.HistoryRepository
 import com.cryptopos.pos.domain.repository.PaymentRepository
-import com.cryptopos.pos.domain.usecase.GetTransactionUseCase
-import com.cryptopos.pos.domain.usecase.ObserveTransactionsUseCase
 import com.cryptopos.pos.domain.usecase.PrintReceiptUseCase
-import com.cryptopos.pos.domain.usecase.RefreshTransactionsUseCase
+import com.cryptopos.pos.domain.usecase.PrintTerminalReceiptUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,38 +21,34 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class TransactionsFilter(
-    val query: String = "",
-    val status: String? = null,
-    val fromDate: String? = null,
-    val toDate: String? = null,
-)
-
 data class TransactionsUiState(
-    val filter: TransactionsFilter = TransactionsFilter(),
-    val items: List<PaymentTransaction> = emptyList(),
+    val filter: HistoryFilter = HistoryFilter(),
+    val items: List<HistoryTransaction> = emptyList(),
+    val protocols: List<String> = emptyList(),
+    val currencies: List<String> = emptyList(),
     val refreshing: Boolean = false,
     val error: String? = null,
 )
 
 @HiltViewModel
 class TransactionsViewModel @Inject constructor(
-    observeTransactions: ObserveTransactionsUseCase,
-    private val refreshTransactions: RefreshTransactionsUseCase,
+    private val historyRepository: HistoryRepository,
 ) : ViewModel() {
-    private val filter = MutableStateFlow(TransactionsFilter())
+    private val filter = MutableStateFlow(HistoryFilter())
     private val refreshing = MutableStateFlow(false)
     private val error = MutableStateFlow<String?>(null)
 
     val state: StateFlow<TransactionsUiState> = combine(
-        observeTransactions(),
+        historyRepository.observeHistory(),
         filter,
         refreshing,
         error,
     ) { items, currentFilter, isRefreshing, err ->
         TransactionsUiState(
             filter = currentFilter,
-            items = items.filter { matches(it, currentFilter) },
+            items = items.filter { it.matches(currentFilter) },
+            protocols = items.mapNotNull { it.protocol }.distinct().sorted(),
+            currencies = items.map { it.currency }.distinct().sorted(),
             refreshing = isRefreshing,
             error = err,
         )
@@ -62,6 +60,9 @@ class TransactionsViewModel @Inject constructor(
 
     fun onQueryChange(value: String) = filter.update { it.copy(query = value) }
     fun onStatusChange(value: String?) = filter.update { it.copy(status = value) }
+    fun onProtocolChange(value: String?) = filter.update { it.copy(protocol = value) }
+    fun onCurrencyChange(value: String?) = filter.update { it.copy(currency = value) }
+    fun onAmountChange(value: String?) = filter.update { it.copy(amountQuery = value) }
     fun onFromDateChange(value: String?) = filter.update { it.copy(fromDate = value) }
     fun onToDateChange(value: String?) = filter.update { it.copy(toDate = value) }
 
@@ -69,54 +70,40 @@ class TransactionsViewModel @Inject constructor(
         viewModelScope.launch {
             refreshing.value = true
             error.value = null
-            runCatching { refreshTransactions() }
+            runCatching { historyRepository.refresh() }
                 .onFailure { error.value = it.toUserMessage() }
             refreshing.value = false
         }
-    }
-
-    private fun matches(tx: PaymentTransaction, filter: TransactionsFilter): Boolean {
-        val q = filter.query.trim()
-        if (q.isNotEmpty()) {
-            val haystack = listOfNotNull(
-                tx.id, tx.amount, tx.status, tx.merchantReference, tx.receiptNumber, tx.gatewayReference,
-            ).joinToString(" ").lowercase()
-            if (!haystack.contains(q.lowercase())) return false
-        }
-        filter.status?.takeIf { it.isNotBlank() }?.let { status ->
-            if (!tx.status.equals(status, ignoreCase = true)) return false
-        }
-        val created = tx.createdAt ?: tx.paymentDate
-        filter.fromDate?.takeIf { it.isNotBlank() }?.let { from ->
-            if (created == null || created < from) return false
-        }
-        filter.toDate?.takeIf { it.isNotBlank() }?.let { to ->
-            if (created == null || created > to) return false
-        }
-        return true
     }
 }
 
 data class TransactionDetailUiState(
     val loading: Boolean = true,
-    val transaction: PaymentTransaction? = null,
+    val item: HistoryTransaction? = null,
     val message: String? = null,
 )
 
 @HiltViewModel
 class TransactionDetailViewModel @Inject constructor(
-    private val getTransaction: GetTransactionUseCase,
+    private val historyRepository: HistoryRepository,
     private val printReceipt: PrintReceiptUseCase,
+    private val printTerminalReceipt: PrintTerminalReceiptUseCase,
     private val paymentRepository: PaymentRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(TransactionDetailUiState())
     val state: StateFlow<TransactionDetailUiState> = _state
 
-    fun load(id: String) {
+    fun load(source: HistorySource, id: String) {
         viewModelScope.launch {
             _state.value = TransactionDetailUiState(loading = true)
-            runCatching { getTransaction(id) }
-                .onSuccess { _state.value = TransactionDetailUiState(loading = false, transaction = it) }
+            runCatching { historyRepository.get(source, id) }
+                .onSuccess { item ->
+                    _state.value = TransactionDetailUiState(
+                        loading = false,
+                        item = item,
+                        message = if (item == null) "Not found" else null,
+                    )
+                }
                 .onFailure {
                     _state.value = TransactionDetailUiState(loading = false, message = it.toUserMessage())
                 }
@@ -135,11 +122,28 @@ class TransactionDetailViewModel @Inject constructor(
         }
     }
 
+    fun printTerminal(source: HistorySource, id: String) {
+        viewModelScope.launch {
+            val result = printTerminalReceipt.printHistory(source, id)
+            _state.update {
+                it.copy(
+                    message = result.exceptionOrNull()?.toUserMessage()
+                        ?: "Receipt printed (${result.getOrNull()?.printerName ?: "printer"})",
+                )
+            }
+        }
+    }
+
     fun refund(id: String) {
         viewModelScope.launch {
             runCatching { paymentRepository.refundPayment(id) }
                 .onSuccess { tx ->
-                    _state.update { it.copy(transaction = tx, message = "Refund ${tx.status}") }
+                    _state.update {
+                        it.copy(
+                            message = "Refund ${tx.status}",
+                            item = it.item?.copy(status = tx.status),
+                        )
+                    }
                 }
                 .onFailure { error ->
                     _state.update { it.copy(message = error.toUserMessage()) }

@@ -12,18 +12,24 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.cryptopos.pos"
+        applicationId = "com.bacgroupsa.pos"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
-        // Comma-separated sha256/ pins; empty disables pinning (debug / until pins are provisioned).
+        // Live API for device / client APKs. Emulator local backend: temporarily use http://10.0.2.2:8000/api/v1/
+        buildConfigField("String", "API_BASE_URL", "\"https://api.bacgroupsa.com/api/v1/\"")
+        // Comma-separated sha256/ pins; empty disables pinning until ops provisions pins.
+        // Example: "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         buildConfigField("String", "CERT_PINS", "\"\"")
-        buildConfigField("String", "SUPPORT_EMAIL", "\"turki.hejaili@gmail.com\"")
-        buildConfigField("String", "SUPPORT_PHONE", "\"+966599000789\"")
+        buildConfigField("String", "SUPPORT_EMAIL", "\"info@bacgroupsa.com\"")
         buildConfigField("boolean", "ENFORCE_DEVICE_INTEGRITY", "false")
+        // Phase 6: call /terminal/* on API; fall back to on-device mock if unavailable.
+        buildConfigField("boolean", "USE_REMOTE_TERMINAL", "true")
+        // Phase 13: card-present processor key (mock_sandbox | certified_psp). Never invents live wire formats.
+        buildConfigField("String", "PAYMENT_PROCESSOR", "\"mock_sandbox\"")
+        buildConfigField("String", "PAYMENT_ENVIRONMENT", "\"SANDBOX\"")
     }
 
     buildTypes {
@@ -34,12 +40,15 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // Production API — bacgroupsa.com (Railway + HostArmada DNS)
             buildConfigField("String", "API_BASE_URL", "\"https://api.bacgroupsa.com/api/v1/\"")
+            // Set real pins before production rollout; empty keeps DEFAULT pinner.
             buildConfigField("String", "CERT_PINS", "\"\"")
+            buildConfigField("boolean", "ENFORCE_DEVICE_INTEGRITY", "true")
         }
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
+            // Same production API so physical phones (not only emulator) can sign in
+            buildConfigField("String", "API_BASE_URL", "\"https://api.bacgroupsa.com/api/v1/\"")
+            buildConfigField("boolean", "ENFORCE_DEVICE_INTEGRITY", "false")
         }
     }
 

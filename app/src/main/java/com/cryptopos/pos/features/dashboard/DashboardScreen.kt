@@ -45,6 +45,7 @@ import com.cryptopos.pos.core.ui.components.LoadingBlock
 import com.cryptopos.pos.core.ui.components.MetricCard
 import com.cryptopos.pos.core.ui.components.OfflineBanner
 import com.cryptopos.pos.core.ui.components.PosPrimaryButton
+import com.cryptopos.pos.core.ui.components.PosSecondaryButton
 import com.cryptopos.pos.core.ui.components.StatusChip
 import com.cryptopos.pos.domain.model.DashboardSnapshot
 import com.cryptopos.pos.domain.model.PaymentTransaction
@@ -54,6 +55,7 @@ import java.math.BigDecimal
 @Composable
 fun DashboardRoute(
     onPay: () -> Unit,
+    onLegacyPay: () -> Unit = {},
     onHistory: () -> Unit,
     onWallet: () -> Unit,
     onSettings: () -> Unit,
@@ -64,6 +66,7 @@ fun DashboardRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val online by viewModel.isOnline.collectAsStateWithLifecycle()
+    val device by viewModel.device.collectAsStateWithLifecycle()
 
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.dashboard)) }) }) { padding ->
         Column(modifier = Modifier.padding(padding)) {
@@ -78,7 +81,9 @@ fun DashboardRoute(
                 ) {
                     DashboardContent(
                         data = ui.data,
+                        device = device,
                         onPay = onPay,
+                        onLegacyPay = onLegacyPay,
                         onHistory = onHistory,
                         onWallet = onWallet,
                         onSettings = onSettings,
@@ -95,7 +100,9 @@ fun DashboardRoute(
 @Composable
 private fun DashboardContent(
     data: DashboardSnapshot,
+    device: com.cryptopos.pos.domain.device.DeviceSnapshot?,
     onPay: () -> Unit,
+    onLegacyPay: () -> Unit,
     onHistory: () -> Unit,
     onWallet: () -> Unit,
     onSettings: () -> Unit,
@@ -109,8 +116,11 @@ private fun DashboardContent(
     ) {
         item {
             Text(data.merchantName, style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             StatusChip(status = data.merchantStatus)
+        }
+        device?.let { snap ->
+            item { DeviceHealthCard(snap) }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -143,16 +153,18 @@ private fun DashboardContent(
         }
         item {
             PosPrimaryButton(text = stringResource(R.string.new_payment), onClick = onPay)
+            Spacer(modifier = Modifier.height(8.dp))
+            PosSecondaryButton(text = stringResource(R.string.legacy_card_payment), onClick = onLegacyPay)
         }
         item {
             Text(stringResource(R.string.quick_actions), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 QuickAction(Icons.Outlined.Payments, stringResource(R.string.pay), onPay, Modifier.weight(1f))
                 QuickAction(Icons.Outlined.History, stringResource(R.string.history), onHistory, Modifier.weight(1f))
                 QuickAction(Icons.Outlined.AccountBalanceWallet, stringResource(R.string.wallet), onWallet, Modifier.weight(1f))
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 QuickAction(Icons.Outlined.Person, stringResource(R.string.profile), onProfile, Modifier.weight(1f))
                 QuickAction(Icons.Outlined.Settings, stringResource(R.string.settings), onSettings, Modifier.weight(1f))
@@ -162,7 +174,7 @@ private fun DashboardContent(
         item {
             val wallet = data.wallet
             Text(stringResource(R.string.wallet_status), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             if (wallet == null) {
                 Text(stringResource(R.string.wallet_unavailable), style = MaterialTheme.typography.bodyMedium)
             } else {
@@ -175,6 +187,50 @@ private fun DashboardContent(
         }
         items(data.recent, key = { it.id }) { tx ->
             TransactionRow(tx, onClick = { onTransaction(tx.id) })
+        }
+    }
+}
+
+@Composable
+private fun DeviceHealthCard(snap: com.cryptopos.pos.domain.device.DeviceSnapshot) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(R.string.device_status), style = MaterialTheme.typography.titleMedium)
+                StatusChip(snap.overallStatus.name)
+            }
+            Text(
+                "${snap.identity.manufacturer} · ${snap.identity.model}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                stringResource(
+                    R.string.device_peripherals,
+                    snap.connectivityStatus.name,
+                    snap.printerStatus.name,
+                    snap.cardReaderStatus.name,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (snap.warnings.isNotEmpty()) {
+                Text(
+                    snap.warnings.joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
         }
     }
 }

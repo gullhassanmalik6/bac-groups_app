@@ -34,7 +34,6 @@ fun SupportRoute() {
             Text(stringResource(R.string.support_title), style = MaterialTheme.typography.headlineMedium)
             Text(stringResource(R.string.support_body), style = MaterialTheme.typography.bodyLarge)
             KeyValueRow(stringResource(R.string.email), BuildConfig.SUPPORT_EMAIL)
-            KeyValueRow(stringResource(R.string.phone), BuildConfig.SUPPORT_PHONE)
             Text(stringResource(R.string.faq), style = MaterialTheme.typography.titleMedium)
             FaqItem(
                 question = stringResource(R.string.faq_offline_q),

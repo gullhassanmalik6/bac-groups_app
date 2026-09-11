@@ -6,7 +6,9 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import com.cryptopos.pos.domain.error.PosError
-import com.cryptopos.pos.domain.printer.PosPrinter
+import com.cryptopos.pos.domain.printer.MockPrinterAdapter
+import com.cryptopos.pos.domain.printer.PrinterAdapter
+import com.cryptopos.pos.domain.printer.PrinterStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -23,29 +25,42 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * Production Sunmi printer adapter via system AIDL service.
- * Fails closed with [PosError.HardwareUnavailable] when the service is absent.
+ * Sunmi thermal adapter via system AIDL. Fails closed when the service is absent.
  */
 @Singleton
-class SunmiPosPrinter @Inject constructor(
+class SunmiPrinterAdapter @Inject constructor(
     @ApplicationContext private val context: Context,
-) : PosPrinter {
+) : PrinterAdapter {
     private val mutex = Mutex()
     @Volatile private var service: IWoyouService? = null
+    @Volatile private var connected: Boolean = false
 
     override fun printerName(): String = "SunmiPrinter"
 
-    override suspend fun isAvailable(): Boolean = withContext(Dispatchers.Main) {
-        runCatching { ensureBound() }.isSuccess
-    }
+    override suspend fun connect(): Result<Unit> = runCatching {
+        ensureBound()
+        connected = true
+        Unit
+    }.fold(
+        onSuccess = { Result.success(Unit) },
+        onFailure = {
+            connected = false
+            Result.failure(
+                it as? PosError
+                    ?: PosError.HardwareUnavailable("Sunmi printer unavailable", it),
+            )
+        },
+    )
 
     override suspend fun printReceipt(lines: List<String>): Result<Unit> = mutex.withLock {
         try {
+            MockPrinterAdapter.requireNoSensitiveCardData(lines)
             val printer = ensureBound()
             awaitCallback { printer.printerInit(it) }
             awaitCallback { printer.printText(lines.joinToString("\n") + "\n\n", it) }
             awaitCallback { printer.lineWrap(3, it) }
             runCatching { awaitCallback { printer.cutPaper(it) } }
+            connected = true
             Result.success(Unit)
         } catch (error: Exception) {
             Timber.e(error, "Sunmi print failed")
@@ -55,6 +70,38 @@ class SunmiPosPrinter @Inject constructor(
             )
         }
     }
+
+    override suspend fun printText(text: String): Result<Unit> =
+        printReceipt(text.lines())
+
+    override suspend fun feed(lines: Int): Result<Unit> = mutex.withLock {
+        try {
+            val printer = ensureBound()
+            awaitCallback { printer.lineWrap(lines.coerceAtLeast(1), it) }
+            Result.success(Unit)
+        } catch (error: Exception) {
+            Result.failure(
+                error as? PosError
+                    ?: PosError.HardwareUnavailable("Sunmi feed failed", error),
+            )
+        }
+    }
+
+    override suspend fun cut(): Result<Unit> = mutex.withLock {
+        try {
+            val printer = ensureBound()
+            awaitCallback { printer.cutPaper(it) }
+            Result.success(Unit)
+        } catch (error: Exception) {
+            Result.failure(
+                error as? PosError
+                    ?: PosError.HardwareUnavailable("Sunmi cut failed", error),
+            )
+        }
+    }
+
+    override suspend fun getStatus(): PrinterStatus =
+        if (connected && service != null) PrinterStatus.ONLINE else PrinterStatus.OFFLINE
 
     private suspend fun awaitCallback(block: (ICallback) -> Unit) {
         suspendCancellableCoroutine { cont ->
@@ -92,6 +139,7 @@ class SunmiPosPrinter @Inject constructor(
 
                     override fun onServiceDisconnected(name: ComponentName?) {
                         service = null
+                        connected = false
                     }
                 }
                 val intent = Intent().apply {
@@ -109,6 +157,7 @@ class SunmiPosPrinter @Inject constructor(
                 cont.invokeOnCancellation {
                     runCatching { context.unbindService(conn) }
                     service = null
+                    connected = false
                 }
             }
         }
@@ -120,7 +169,92 @@ class SunmiPosPrinter @Inject constructor(
     }
 }
 
-class EpsonPosPrinter : PosPrinter {
+/**
+ * Tries Sunmi first; falls back to [MockPrinterAdapter] on emulator / non-Sunmi devices.
+ */
+@Singleton
+class ResolvingPrinterAdapter @Inject constructor(
+    private val sunmi: SunmiPrinterAdapter,
+    private val mock: MockPrinterAdapter,
+) : PrinterAdapter {
+    @Volatile
+    private var active: PrinterAdapter = mock
+
+    override fun printerName(): String = active.printerName()
+
+    override suspend fun connect(): Result<Unit> {
+        val sunmiResult = sunmi.connect()
+        return if (sunmiResult.isSuccess) {
+            active = sunmi
+            sunmiResult
+        } else {
+            active = mock
+            mock.connect()
+        }
+    }
+
+    override suspend fun printReceipt(lines: List<String>): Result<Unit> {
+        connect()
+        val result = active.printReceipt(lines)
+        if (result.isSuccess || active === mock) return result
+        active = mock
+        mock.connect()
+        return mock.printReceipt(lines).also {
+            if (it.isSuccess) {
+                Timber.w("Sunmi print failed; used MockPrinterAdapter fallback")
+            }
+        }
+    }
+
+    override suspend fun printText(text: String): Result<Unit> {
+        connect()
+        val result = active.printText(text)
+        if (result.isSuccess || active === mock) return result
+        active = mock
+        mock.connect()
+        return mock.printText(text)
+    }
+
+    override suspend fun feed(lines: Int): Result<Unit> {
+        connect()
+        return active.feed(lines)
+    }
+
+    override suspend fun cut(): Result<Unit> {
+        connect()
+        return active.cut()
+    }
+
+    override suspend fun getStatus(): PrinterStatus {
+        connect()
+        return active.getStatus()
+    }
+}
+
+/** Bridges [PrinterAdapter] to legacy [com.cryptopos.pos.domain.printer.PosPrinter]. */
+@Singleton
+class AdapterPosPrinter @Inject constructor(
+    private val adapter: PrinterAdapter,
+) : com.cryptopos.pos.domain.printer.PosPrinter {
+    override suspend fun printReceipt(lines: List<String>): Result<Unit> {
+        adapter.connect()
+        val printed = adapter.printReceipt(lines)
+        if (printed.isSuccess) {
+            adapter.feed()
+            runCatching { adapter.cut() }
+        }
+        return printed
+    }
+
+    override fun printerName(): String = adapter.printerName()
+
+    override suspend fun isAvailable(): Boolean {
+        adapter.connect()
+        return adapter.getStatus() == PrinterStatus.ONLINE
+    }
+}
+
+class EpsonPosPrinter : com.cryptopos.pos.domain.printer.PosPrinter {
     override suspend fun printReceipt(lines: List<String>): Result<Unit> =
         Result.failure(PosError.HardwareUnavailable("Epson printer adapter is not configured"))
 
@@ -129,7 +263,7 @@ class EpsonPosPrinter : PosPrinter {
     override suspend fun isAvailable(): Boolean = false
 }
 
-class StarPosPrinter : PosPrinter {
+class StarPosPrinter : com.cryptopos.pos.domain.printer.PosPrinter {
     override suspend fun printReceipt(lines: List<String>): Result<Unit> =
         Result.failure(PosError.HardwareUnavailable("Star printer adapter is not configured"))
 

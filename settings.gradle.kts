@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "CryptoPOS"
+rootProject.name = "BonyanPOS"
 include(":app")

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cryptopos.pos.core.common.toUserMessage
 import com.cryptopos.pos.domain.usecase.LoginUseCase
+import com.cryptopos.pos.domain.usecase.SyncDeviceUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ data class LoginUiState(
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
+    private val syncDevice: SyncDeviceUseCase,
 ) : ViewModel() {
     private val _state = MutableStateFlow(LoginUiState())
     val state: StateFlow<LoginUiState> = _state
@@ -39,6 +41,7 @@ class LoginViewModel @Inject constructor(
             _state.update { it.copy(loading = true, error = null) }
             runCatching { loginUseCase(current.email, current.password) }
                 .onSuccess {
+                    runCatching { syncDevice() }
                     _state.update { it.copy(loading = false) }
                     _events.emit(Unit)
                 }

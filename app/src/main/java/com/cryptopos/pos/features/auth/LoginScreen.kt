@@ -23,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cryptopos.pos.R
 import com.cryptopos.pos.core.ui.components.PosPrimaryButton
+import com.cryptopos.pos.features.payment.SecureWindowEffect
 
 @Composable
 fun LoginRoute(
@@ -30,9 +31,32 @@ fun LoginRoute(
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    SecureWindowEffect()
     LaunchedEffect(Unit) {
         viewModel.events.collect { onLoggedIn() }
     }
+    LoginScreenContent(
+        email = state.email,
+        password = state.password,
+        loading = state.loading,
+        error = state.error,
+        onEmailChange = viewModel::onEmailChange,
+        onPasswordChange = viewModel::onPasswordChange,
+        onLogin = viewModel::login,
+    )
+}
+
+/** Hilt-free login form for UI tests and previews. */
+@Composable
+fun LoginScreenContent(
+    email: String,
+    password: String,
+    loading: Boolean,
+    error: String?,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onLogin: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -48,8 +72,8 @@ fun LoginRoute(
         )
         Spacer(modifier = Modifier.height(28.dp))
         OutlinedTextField(
-            value = state.email,
-            onValueChange = viewModel::onEmailChange,
+            value = email,
+            onValueChange = onEmailChange,
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(R.string.email)) },
             singleLine = true,
@@ -57,23 +81,23 @@ fun LoginRoute(
         )
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedTextField(
-            value = state.password,
-            onValueChange = viewModel::onPasswordChange,
+            value = password,
+            onValueChange = onPasswordChange,
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(R.string.password)) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         )
-        if (state.error != null) {
+        if (error != null) {
             Spacer(modifier = Modifier.height(12.dp))
-            Text(state.error!!, color = MaterialTheme.colorScheme.error)
+            Text(error, color = MaterialTheme.colorScheme.error)
         }
         Spacer(modifier = Modifier.height(24.dp))
         PosPrimaryButton(
             text = stringResource(R.string.sign_in),
-            loading = state.loading,
-            onClick = viewModel::login,
+            loading = loading,
+            onClick = onLogin,
         )
     }
 }

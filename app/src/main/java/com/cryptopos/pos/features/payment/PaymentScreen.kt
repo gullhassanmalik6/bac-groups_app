@@ -2,22 +2,16 @@ package com.cryptopos.pos.features.payment
 
 import android.app.Activity
 import android.view.WindowManager
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -33,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cryptopos.pos.R
+import com.cryptopos.pos.core.ui.components.AmountKeypad
 import com.cryptopos.pos.core.ui.components.PosPrimaryButton
 import com.cryptopos.pos.core.ui.components.PosSecondaryButton
 
@@ -66,7 +61,7 @@ fun PaymentRoute(
                     )
                     Text(state.currency, style = MaterialTheme.typography.titleMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("SAR", "USD", "EUR").forEach { code ->
+                        listOf("CAD", "USD", "EUR", "GBP", "AED", "SAR").forEach { code ->
                             FilterChip(
                                 selected = state.currency == code,
                                 onClick = { viewModel.setCurrency(code) },
@@ -127,51 +122,6 @@ fun PaymentRoute(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun AmountKeypad(
-    onDigit: (String) -> Unit,
-    onBackspace: () -> Unit,
-    onClear: () -> Unit,
-) {
-    val keys = listOf(
-        listOf("1", "2", "3"),
-        listOf("4", "5", "6"),
-        listOf("7", "8", "9"),
-        listOf(".", "0", "⌫"),
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        keys.forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                row.forEach { key ->
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(64.dp)
-                            .clickable {
-                                when (key) {
-                                    "⌫" -> onBackspace()
-                                    else -> onDigit(key)
-                                }
-                            },
-                        shape = RoundedCornerShape(16.dp),
-                        tonalElevation = 1.dp,
-                        shadowElevation = 1.dp,
-                    ) {
-                        Text(
-                            text = key,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(20.dp),
-                            style = MaterialTheme.typography.headlineMedium,
-                        )
-                    }
-                }
-            }
-        }
-        PosSecondaryButton(text = stringResource(R.string.clear), onClick = onClear)
     }
 }
 

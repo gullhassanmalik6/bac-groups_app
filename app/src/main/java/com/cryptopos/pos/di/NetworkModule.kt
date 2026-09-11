@@ -37,7 +37,14 @@ object NetworkModule {
             .split(',')
             .map { it.trim() }
             .filter { it.isNotEmpty() }
-        if (pins.isEmpty()) return CertificatePinner.DEFAULT
+        if (pins.isEmpty()) {
+            if (!BuildConfig.DEBUG) {
+                timber.log.Timber.e(
+                    "CERT_PINS empty in release — TLS pinning disabled until pins are provisioned",
+                )
+            }
+            return CertificatePinner.DEFAULT
+        }
         val host = runCatching {
             java.net.URI(BuildConfig.API_BASE_URL).host
         }.getOrNull() ?: return CertificatePinner.DEFAULT
@@ -54,9 +61,11 @@ object NetworkModule {
         retryInterceptor: RetryInterceptor,
         certificatePinner: CertificatePinner,
     ): OkHttpClient {
-        val logging = HttpLoggingInterceptor().apply {
+        val logging = HttpLoggingInterceptor { message ->
+            timber.log.Timber.d("%s", redactLogMessage(message))
+        }.apply {
             level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BODY
+                HttpLoggingInterceptor.Level.BASIC
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }
@@ -71,6 +80,21 @@ object NetworkModule {
             .authenticator(authenticator)
             .addInterceptor(logging)
             .build()
+    }
+
+    private fun redactLogMessage(message: String): String {
+        var out = message
+        out = Regex("""(?i)(authorization\s*:\s*bearer\s+)\S+""")
+            .replace(out, "$1[REDACTED]")
+        out = Regex("""(?i)("password"\s*:\s*")[^"]*(")""")
+            .replace(out, "$1[REDACTED]$2")
+        out = Regex("""(?i)("access_token"\s*:\s*")[^"]*(")""")
+            .replace(out, "$1[REDACTED]$2")
+        out = Regex("""(?i)("refresh_token"\s*:\s*")[^"]*(")""")
+            .replace(out, "$1[REDACTED]$2")
+        out = Regex("""\b(?:\d[ -]*?){13,19}\b""").replace(out, "[REDACTED_PAN]")
+        out = Regex("""(?i)\b(?:cvv|cvc)\s*[:=]?\s*\d{3,4}\b""").replace(out, "[REDACTED_CVV]")
+        return out
     }
 
     @Provides

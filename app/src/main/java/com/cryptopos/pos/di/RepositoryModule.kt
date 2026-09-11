@@ -1,10 +1,16 @@
 package com.cryptopos.pos.di
 
 import com.cryptopos.pos.data.repository.AuthRepositoryImpl
+import com.cryptopos.pos.data.repository.HistoryRepositoryImpl
 import com.cryptopos.pos.data.repository.MerchantRepositoryImpl
 import com.cryptopos.pos.data.repository.PaymentRepositoryImpl
 import com.cryptopos.pos.data.repository.SettingsRepositoryImpl
+import com.cryptopos.pos.data.repository.TerminalRemoteGateway
+import com.cryptopos.pos.data.repository.TerminalRemoteRepository
+import com.cryptopos.pos.data.mock.DefaultProtocolProfileCatalog
+import com.cryptopos.pos.domain.protocol.ProtocolProfileCatalog
 import com.cryptopos.pos.domain.repository.AuthRepository
+import com.cryptopos.pos.domain.repository.HistoryRepository
 import com.cryptopos.pos.domain.repository.MerchantRepository
 import com.cryptopos.pos.domain.repository.PaymentRepository
 import com.cryptopos.pos.domain.repository.SettingsRepository
@@ -32,4 +38,16 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProtocolProfileCatalog(impl: DefaultProtocolProfileCatalog): ProtocolProfileCatalog
+
+    @Binds
+    @Singleton
+    abstract fun bindTerminalRemoteGateway(impl: TerminalRemoteRepository): TerminalRemoteGateway
+
+    @Binds
+    @Singleton
+    abstract fun bindHistoryRepository(impl: HistoryRepositoryImpl): HistoryRepository
 }

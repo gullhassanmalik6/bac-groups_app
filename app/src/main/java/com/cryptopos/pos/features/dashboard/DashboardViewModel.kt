@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.cryptopos.pos.core.common.UiState
 import com.cryptopos.pos.core.common.toUserMessage
 import com.cryptopos.pos.core.network.ConnectivityObserver
+import com.cryptopos.pos.domain.device.DeviceSnapshot
 import com.cryptopos.pos.domain.model.DashboardSnapshot
 import com.cryptopos.pos.domain.usecase.LoadDashboardUseCase
+import com.cryptopos.pos.domain.usecase.SyncDeviceUseCase
 import com.cryptopos.pos.sync.SyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,9 +23,13 @@ class DashboardViewModel @Inject constructor(
     private val loadDashboard: LoadDashboardUseCase,
     connectivityObserver: ConnectivityObserver,
     private val syncScheduler: SyncScheduler,
+    private val syncDevice: SyncDeviceUseCase,
 ) : ViewModel() {
     private val _state = MutableStateFlow<UiState<DashboardSnapshot>>(UiState.Loading)
     val state: StateFlow<UiState<DashboardSnapshot>> = _state
+
+    private val _device = MutableStateFlow<DeviceSnapshot?>(null)
+    val device: StateFlow<DeviceSnapshot?> = _device
 
     val isOnline = connectivityObserver.isOnline.stateIn(
         viewModelScope,
@@ -42,6 +48,9 @@ class DashboardViewModel @Inject constructor(
             runCatching { loadDashboard() }
                 .onSuccess { _state.value = UiState.Success(it) }
                 .onFailure { _state.value = UiState.Error(it.toUserMessage()) }
+            runCatching { syncDevice() }
+                .onSuccess { _device.value = it }
+                .onFailure { /* keep last snapshot */ }
         }
     }
 

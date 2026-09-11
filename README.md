@@ -1,6 +1,11 @@
-# CryptoPOS Android
+# Bonyan POS (Android)
 
-Enterprise Android POS for Sunmi V3 and compatible terminals.
+Official Android POS for **Bonyan Advanced Contracting Establishment** on Sunmi V3.
+
+- App name: **Bonyan POS** / بنيان POS
+- Application ID: `com.bacgroupsa.pos`
+- Support: `info@bacgroupsa.com`
+- Release API: `https://api.bacgroupsa.com/api/v1/`
 
 ## Architecture
 
@@ -12,26 +17,20 @@ UI (Compose) → ViewModels → Domain repositories → Data (Retrofit/Room/Data
                          Hardware abstractions (Printer / CardReader)
 ```
 
-Payment acquiring is performed by the FastAPI backend gateway adapters. The app never talks to Stripe/HyperPay directly.
+Payment acquiring is performed by the FastAPI backend gateway adapters.
 
 ## Stack
 
 Kotlin · Compose · Hilt · Navigation · Retrofit · Room · DataStore · WorkManager · Timber
 
-## Screens
-
-Splash · Login · Dashboard · Payment · History · Transaction detail · Receipt · Wallet · Settings
-
 ## Run
 
-1. Start backend on port 8000  
-2. Open `Crypto/` in Android Studio  
-3. Run on emulator (API uses `http://10.0.2.2:8000/api/v1/`)  
-4. For a physical device, change `API_BASE_URL` in `app/build.gradle.kts` to your LAN IP  
-
-Seeded merchant login requires a merchant user from the backend (register + create merchant + wallet via API/docs).
+1. Start backend on port 8000
+2. Open `App/CryptoPOS` in Android Studio
+3. Emulator API: `http://10.0.2.2:8000/api/v1/`
+4. Release / Sunmi: `https://api.bacgroupsa.com/api/v1/`
 
 ## Hardware seams
 
-- `PosPrinter` → `SunmiPosPrinter` (reflective/SDK-ready) with `LogPosPrinter` fallback  
-- `CardReaderGateway` → `SimulatedCardReaderGateway` for tap simulation until NFC SDK is wired  
+- `PosPrinter` → `SunmiPosPrinter` with `LogPosPrinter` fallback
+- `CardReaderGateway` → simulated until NFC SDK is wired

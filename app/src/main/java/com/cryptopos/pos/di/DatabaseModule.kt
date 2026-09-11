@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.cryptopos.pos.data.local.db.CryptoPosDatabase
 import com.cryptopos.pos.data.local.db.dao.PendingPaymentDao
+import com.cryptopos.pos.data.local.db.dao.TerminalHistoryDao
 import com.cryptopos.pos.data.local.db.dao.TransactionDao
 import dagger.Module
 import dagger.Provides
@@ -27,4 +28,7 @@ object DatabaseModule {
 
     @Provides
     fun providePendingPaymentDao(db: CryptoPosDatabase): PendingPaymentDao = db.pendingPaymentDao()
+
+    @Provides
+    fun provideTerminalHistoryDao(db: CryptoPosDatabase): TerminalHistoryDao = db.terminalHistoryDao()
 }

@@ -79,6 +79,8 @@ data class CreatePaymentRequestDto(
     @SerialName("merchant_reference") val merchantReference: String,
     val description: String? = null,
     @SerialName("gateway_provider") val gatewayProvider: String? = "sandbox",
+    @SerialName("protocol_code") val protocolCode: String? = null,
+    @SerialName("payment_mode") val paymentMode: String? = null,
 )
 
 @Serializable
@@ -140,4 +142,105 @@ data class TransactionListDto(
     val total: Int = 0,
     val page: Int = 1,
     @SerialName("page_size") val pageSize: Int = 20,
+)
+
+@Serializable
+data class CreateTerminalSessionRequestDto(
+    @SerialName("amount_minor") val amountMinor: Long,
+    val currency: String,
+    @SerialName("transaction_type") val transactionType: String = "SALE",
+    @SerialName("protocol_code") val protocolCode: String? = null,
+    @SerialName("device_id") val deviceId: String? = null,
+    @SerialName("idempotency_key") val idempotencyKey: String? = null,
+)
+
+@Serializable
+data class AuthorizeTerminalSessionRequestDto(
+    @SerialName("payment_method_token") val paymentMethodToken: String = "pm_test_visa_success",
+    val scenario: String? = null,
+)
+
+@Serializable
+data class TerminalSessionEventDto(
+    val from: String? = null,
+    val to: String? = null,
+    val note: String? = null,
+)
+
+@Serializable
+data class TerminalSessionDto(
+    val id: String,
+    val state: String,
+    @SerialName("amount_minor") val amountMinor: Long,
+    val currency: String,
+    @SerialName("transaction_type") val transactionType: String,
+    @SerialName("protocol_id") val protocolId: String? = null,
+    @SerialName("protocol_code") val protocolCode: String? = null,
+    @SerialName("protocol_label") val protocolLabel: String? = null,
+    @SerialName("sandbox_outcome") val sandboxOutcome: String? = null,
+    val environment: String = "SANDBOX",
+    @SerialName("authorization_code") val authorizationCode: String? = null,
+    @SerialName("processor_reference") val processorReference: String? = null,
+    @SerialName("processor_status") val processorStatus: String? = null,
+    @SerialName("processor_message") val processorMessage: String? = null,
+    @SerialName("signature_required") val signatureRequired: Boolean = false,
+    @SerialName("card_brand") val cardBrand: String? = null,
+    @SerialName("card_last4") val cardLast4: String? = null,
+    @SerialName("device_id") val deviceId: String? = null,
+    val events: List<TerminalSessionEventDto> = emptyList(),
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
+)
+
+@Serializable
+data class TerminalSessionListDto(
+    val items: List<TerminalSessionDto> = emptyList(),
+    val total: Int = 0,
+)
+
+@Serializable
+data class RegisterDeviceRequestDto(
+    @SerialName("serial_number") val serialNumber: String,
+    val model: String = "Android POS",
+    @SerialName("android_version") val androidVersion: String? = null,
+    val manufacturer: String = "Generic",
+    @SerialName("app_version") val appVersion: String? = null,
+    @SerialName("connectivity_status") val connectivityStatus: String? = null,
+    @SerialName("printer_status") val printerStatus: String? = null,
+    @SerialName("card_reader_status") val cardReaderStatus: String? = null,
+    @SerialName("overall_status") val overallStatus: String? = null,
+    val firmware: String? = null,
+)
+
+@Serializable
+data class DeviceHeartbeatRequestDto(
+    @SerialName("device_id") val deviceId: String? = null,
+    @SerialName("serial_number") val serialNumber: String? = null,
+    @SerialName("connectivity_status") val connectivityStatus: String = "ONLINE",
+    @SerialName("printer_status") val printerStatus: String? = null,
+    @SerialName("card_reader_status") val cardReaderStatus: String? = null,
+    @SerialName("overall_status") val overallStatus: String? = null,
+)
+
+@Serializable
+data class DeviceDto(
+    val id: String,
+    @SerialName("serial_number") val serialNumber: String,
+    val model: String,
+    @SerialName("android_version") val androidVersion: String? = null,
+    val status: String,
+    @SerialName("last_seen_at") val lastSeenAt: String? = null,
+    @SerialName("merchant_id") val merchantId: String,
+    @SerialName("connectivity_status") val connectivityStatus: String = "ONLINE",
+    val manufacturer: String? = null,
+    @SerialName("app_version") val appVersion: String? = null,
+    @SerialName("printer_status") val printerStatus: String? = null,
+    @SerialName("card_reader_status") val cardReaderStatus: String? = null,
+    @SerialName("overall_status") val overallStatus: String? = null,
+)
+
+@Serializable
+data class DeviceListDto(
+    val items: List<DeviceDto> = emptyList(),
+    val total: Int = 0,
 )

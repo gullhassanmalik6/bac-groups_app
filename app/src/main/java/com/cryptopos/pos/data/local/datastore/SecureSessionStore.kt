@@ -59,6 +59,15 @@ class SecureSessionStore @Inject constructor(
         snapshot.value = readSnapshot()
     }
 
+    suspend fun saveDeviceId(deviceId: String) = withContext(Dispatchers.IO) {
+        prefs.edit().putString(KEY_DEVICE_ID, deviceId).apply()
+        snapshot.value = readSnapshot()
+    }
+
+    suspend fun getDeviceId(): String? = withContext(Dispatchers.IO) {
+        prefs.getString(KEY_DEVICE_ID, null)
+    }
+
     suspend fun updateTokens(accessToken: String, refreshToken: String) = withContext(Dispatchers.IO) {
         prefs.edit()
             .putString(KEY_ACCESS, accessToken)
@@ -86,6 +95,7 @@ class SecureSessionStore @Inject constructor(
         email = prefs.getString(KEY_EMAIL, null),
         name = prefs.getString(KEY_NAME, null),
         merchantName = prefs.getString(KEY_MERCHANT, null),
+        deviceId = prefs.getString(KEY_DEVICE_ID, null),
     )
 
     private data class SessionSnapshot(
@@ -94,6 +104,7 @@ class SecureSessionStore @Inject constructor(
         val email: String? = null,
         val name: String? = null,
         val merchantName: String? = null,
+        val deviceId: String? = null,
     )
 
     private companion object {
@@ -103,5 +114,6 @@ class SecureSessionStore @Inject constructor(
         const val KEY_EMAIL = "user_email"
         const val KEY_NAME = "user_name"
         const val KEY_MERCHANT = "merchant_name"
+        const val KEY_DEVICE_ID = "device_id"
     }
 }

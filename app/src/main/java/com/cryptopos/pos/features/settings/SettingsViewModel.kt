@@ -41,7 +41,7 @@ class SettingsViewModel @Inject constructor(
 
     val biometricAvailable = biometricAuthenticator.canAuthenticate()
 
-    val supportedCurrencies = listOf("SAR", "USD", "EUR")
+    val supportedCurrencies = listOf("CAD", "USD", "EUR", "GBP", "AED", "SAR")
     val gatewayChoices = listOf(
         GatewayProvider.NOWPAYMENTS,
         GatewayProvider.SANDBOX,
