@@ -18,8 +18,9 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // Live API for device / client APKs. Emulator local backend: temporarily use http://10.0.2.2:8000/api/v1/
-        buildConfigField("String", "API_BASE_URL", "\"https://api.bacgroupsa.com/api/v1/\"")
+        // Railway API until api.bacgroupsa.com DNS CNAME is configured.
+        // Emulator local backend: temporarily use http://10.0.2.2:8000/api/v1/
+        buildConfigField("String", "API_BASE_URL", "\"https://bac-groupsbackend-production.up.railway.app/api/v1/\"")
         // Comma-separated sha256/ pins; empty disables pinning until ops provisions pins.
         // Example: "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         buildConfigField("String", "CERT_PINS", "\"\"")
@@ -40,14 +41,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            buildConfigField("String", "API_BASE_URL", "\"https://api.bacgroupsa.com/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://bac-groupsbackend-production.up.railway.app/api/v1/\"")
             // Set real pins before production rollout; empty keeps DEFAULT pinner.
             buildConfigField("String", "CERT_PINS", "\"\"")
             buildConfigField("boolean", "ENFORCE_DEVICE_INTEGRITY", "true")
         }
         debug {
             // Same production API so physical phones (not only emulator) can sign in
-            buildConfigField("String", "API_BASE_URL", "\"https://api.bacgroupsa.com/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://bac-groupsbackend-production.up.railway.app/api/v1/\"")
             buildConfigField("boolean", "ENFORCE_DEVICE_INTEGRITY", "false")
         }
     }
