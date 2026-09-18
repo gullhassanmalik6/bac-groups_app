@@ -1,70 +1,99 @@
 package com.cryptopos.pos.domain.receipt
 
-import com.cryptopos.pos.domain.model.HistoryTransaction
-import com.cryptopos.pos.domain.printer.MockPrinterAdapter
-import com.cryptopos.pos.domain.terminal.TerminalSession
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import javax.inject.Inject
-import javax.inject.Singleton
+enum class ReceiptCopy {
+    CUSTOMER,
+    MERCHANT,
+}
 
 /**
- * Thermal-style receipt document for terminal (and history) sessions.
- * Never includes PAN, CVV, track, or PIN.
+ * Thermal receipt for sandbox terminal sessions.
+ *
+ * Layout follows client screenshots. Values that a licensed acquirer would
+ * supply (ARN, ISO DE18/DE25, payout confirmation) are **not invented**.
  */
 data class TerminalReceipt(
     val merchantName: String,
+    val copy: ReceiptCopy,
     val transactionId: String,
     val amountDisplay: String,
     val currency: String,
     val paymentMethod: String,
+    val cardBrand: String?,
+    val cardLast4: String?,
     val statusLine: String,
     val authorizationCode: String?,
     val reference: String?,
     val protocol: String?,
     val environment: String,
     val dateDisplay: String,
+    val connectionMode: String,
+    val maskedEmail: String,
+    val payoutNetwork: String,
+    val maskedWallet: String,
+    val isoFields: String,
+    val feeLine: String,
+    val qrPayload: String,
     val printerName: String? = null,
 ) {
+    fun forCopy(copy: ReceiptCopy): TerminalReceipt = copy(copy = copy)
+
     fun toPrintLines(): List<String> = buildList {
         add(SEPARATOR)
         add(center(merchantName.uppercase()))
+        add(center(copyBanner()))
         add(SEPARATOR)
+        add(center("SANDBOX — NOT REAL FUNDS"))
         add("")
-        add("Transaction:")
-        add(transactionId)
+        add(kv("DATE", dateDisplay))
+        add(kv("TXN ID", transactionId.take(18)))
+        add(kv("ARN", arnDisplay()))
+        add(kv("TERMINAL", "POS"))
+        add(kv("CONNECTION", connectionMode))
+        add(kv("EMAIL", maskedEmail))
+        add(kv("PROTOCOL", protocol.orEmpty().ifBlank { "—" }))
+        add(kv("CARD", maskedCard()))
+        add(kv("CARD TYPE", cardBrand?.uppercase() ?: "—"))
+        add(kv("AMOUNT", "$currency $amountDisplay".trim()))
+        add(kv("PAYOUT", payoutNetwork))
+        add(kv("WALLET", maskedWallet))
+        add(kv("AUTH CODE", authDisplay()))
+        add(kv("ISO 18 / 25", isoFields))
+        add(kv("STATUS", statusLine))
         add("")
-        add("Total:")
-        add(amountDisplay)
+        add(center("Signature"))
         add("")
-        add("Payment:")
-        add(paymentMethod)
+        add(feeLine)
         add("")
-        add("Status:")
-        add(statusLine)
-        if (!authorizationCode.isNullOrBlank()) {
-            add("")
-            add("Authorization:")
-            add(authorizationCode)
-        }
-        if (!reference.isNullOrBlank()) {
-            add("")
-            add("Reference:")
-            add(reference)
-        }
-        if (!protocol.isNullOrBlank()) {
-            add("")
-            add("Protocol:")
-            add(protocol)
-        }
-        add("")
-        add("Date:")
-        add(dateDisplay)
+        add("QR REF")
+        add(qrPayload)
         add("")
         add(SEPARATOR)
+        add(center("NOT SETTLED"))
+        add(center("PAYOUT NOT CONFIRMED"))
         add(center("${environment.uppercase()} TRANSACTION"))
         add(SEPARATOR)
+    }
+
+    private fun copyBanner(): String =
+        if (copy == ReceiptCopy.CUSTOMER) "CUSTOMER COPY" else "MERCHANT COPY"
+
+    private fun arnDisplay(): String {
+        val ref = reference?.trim().orEmpty()
+        return if (ref.startsWith("sbx_") || ref.startsWith("TEST") || ref.isBlank()) {
+            "SANDBOX (no ARN)"
+        } else {
+            ref.take(18)
+        }
+    }
+
+    private fun authDisplay(): String {
+        val code = authorizationCode?.trim().orEmpty()
+        return if (code.isBlank()) "SANDBOX (none)" else code.take(16)
+    }
+
+    private fun maskedCard(): String {
+        val last4 = cardLast4?.filter { it.isDigit() }.orEmpty()
+        return if (last4.length == 4) "•••• •••• •••• $last4" else paymentMethod
     }
 
     companion object {
@@ -76,95 +105,29 @@ data class TerminalReceipt(
             val pad = (WIDTH - text.length) / 2
             return " ".repeat(pad) + text
         }
-    }
-}
 
-@Singleton
-class TerminalReceiptFactory @Inject constructor() {
-    private val dateFmt: DateTimeFormatter =
-        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault())
-
-    fun fromSession(
-        session: TerminalSession,
-        merchantName: String = DEFAULT_MERCHANT,
-    ): TerminalReceipt {
-        val currency = session.currency ?: "CAD"
-        val amount = session.amountRaw ?: "0.00"
-        val method = listOfNotNull(
-            session.cardBrand?.uppercase()?.let { "TEST $it" },
-            session.cardLast4?.let { "****$it" },
-        ).joinToString(" ").ifBlank { "TEST TOKENIZED CARD" }
-
-        val status = when {
-            session.state.name in SUCCESS_STATES -> "APPROVED - SANDBOX"
-            else -> "${session.state.name} - SANDBOX"
+        fun kv(label: String, value: String): String {
+            val left = label.uppercase()
+            val right = value.ifBlank { "—" }
+            val spaces = (WIDTH - left.length - right.length).coerceAtLeast(1)
+            val line = left + " ".repeat(spaces) + right
+            return if (line.length <= WIDTH) line else (left + " " + right).take(WIDTH)
         }
 
-        return TerminalReceipt(
-            merchantName = merchantName,
-            transactionId = session.remoteSessionId ?: session.id,
-            amountDisplay = formatMoney(amount, currency),
-            currency = currency,
-            paymentMethod = method,
-            statusLine = status,
-            authorizationCode = session.authorizationCode,
-            reference = session.processorReference,
-            protocol = session.protocolDisplayName ?: session.protocolCode,
-            environment = session.environment.ifBlank { "SANDBOX" },
-            dateDisplay = dateFmt.format(session.updatedAt),
-        ).also { MockPrinterAdapter.requireNoSensitiveCardData(it.toPrintLines()) }
-    }
-
-    fun fromHistory(
-        item: HistoryTransaction,
-        merchantName: String = DEFAULT_MERCHANT,
-    ): TerminalReceipt {
-        val method = item.paymentMethod?.takeIf { it.isNotBlank() }
-            ?: listOfNotNull(
-                item.cardBrand?.uppercase()?.let { "TEST $it" },
-                item.cardLast4?.let { "****$it" },
-            ).joinToString(" ").ifBlank { "TEST TOKENIZED CARD" }
-
-        val status = when {
-            item.status.equals("COMPLETED", true) ||
-                item.status.equals("APPROVED", true) ||
-                item.status.equals("CAPTURED", true) ||
-                item.status.equals("success", true) -> "APPROVED - SANDBOX"
-            else -> "${item.status.uppercase()} - SANDBOX"
+        fun maskEmail(email: String?): String {
+            val value = email?.trim().orEmpty()
+            val at = value.indexOf('@')
+            if (at <= 0 || at == value.lastIndex) return "••••@••••"
+            return value.first() + "••••@" + value.substring(at + 1)
         }
 
-        val date = item.date?.let { raw ->
-            runCatching { dateFmt.format(Instant.parse(raw)) }.getOrElse { raw.take(16).replace('T', ' ') }
-        } ?: dateFmt.format(Instant.now())
-
-        return TerminalReceipt(
-            merchantName = merchantName,
-            transactionId = item.id,
-            amountDisplay = formatMoney(item.amount, item.currency),
-            currency = item.currency,
-            paymentMethod = method,
-            statusLine = status,
-            authorizationCode = item.authorizationCode,
-            reference = item.referenceId,
-            protocol = item.protocol,
-            environment = item.environment ?: "SANDBOX",
-            dateDisplay = date,
-        ).also { MockPrinterAdapter.requireNoSensitiveCardData(it.toPrintLines()) }
-    }
-
-    private fun formatMoney(amount: String, currency: String): String {
-        val symbol = when (currency.uppercase()) {
-            "CAD" -> "CA$"
-            "USD" -> "US$"
-            "AED" -> "AED "
-            "SAR" -> "SAR "
-            else -> "$currency "
+        fun maskWallet(address: String?): String {
+            val value = address?.trim().orEmpty()
+            if (value.length < 10) return "not configured"
+            return value.take(5) + "••••" + value.takeLast(4)
         }
-        return "$symbol$amount"
-    }
 
-    companion object {
-        const val DEFAULT_MERCHANT = "DEMO MERCHANT"
-        private val SUCCESS_STATES = setOf("APPROVED", "CAPTURED", "COMPLETED")
+        fun sandboxQr(transactionId: String): String =
+            "cryptopos://sandbox-receipt/$transactionId"
     }
 }

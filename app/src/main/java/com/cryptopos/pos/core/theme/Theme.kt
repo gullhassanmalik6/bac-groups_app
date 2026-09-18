@@ -13,43 +13,52 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.cryptopos.pos.domain.model.ThemeMode
 
-val Navy = Color(0xFF0B1F3A)
-val Royal = Color(0xFF2563EB)
-val Emerald = Color(0xFF10B981)
-val NearBlack = Color(0xFF09090B)
-val LightGray = Color(0xFFF4F6F8)
+/** CryptoPos mockup palette — dark terminal UI with neon green CTAs. */
+val NeonGreen = Color(0xFF22C55E)
+val CryptoBg = Color(0xFF0B1220)
+val CryptoSurface = Color(0xFF151C2C)
+val CryptoSurfaceAlt = Color(0xFF1B2436)
+val CryptoMuted = Color(0xFF94A3B8)
+val CryptoOutline = Color(0xFF334155)
+val ReceiptPaper = Color(0xFFF8FAFC)
+val ReceiptInk = Color(0xFF0F172A)
 
-// Roboto / system sans — Inter can be bundled under res/font when font assets are provisioned.
 private val PosFont = FontFamily.SansSerif
 
 private val LightColors = lightColorScheme(
-    primary = Navy,
+    primary = NeonGreen,
     onPrimary = Color.White,
-    secondary = Royal,
+    secondary = NeonGreen,
     onSecondary = Color.White,
-    tertiary = Emerald,
+    tertiary = NeonGreen,
     onTertiary = Color.White,
-    background = Color.White,
-    onBackground = Navy,
-    surface = LightGray,
-    onSurface = Navy,
+    background = Color(0xFFF1F5F9),
+    onBackground = ReceiptInk,
+    surface = Color.White,
+    onSurface = ReceiptInk,
+    surfaceVariant = Color(0xFFE2E8F0),
+    onSurfaceVariant = Color(0xFF475569),
+    outline = Color(0xFFCBD5E1),
     error = Color(0xFFDC2626),
     onError = Color.White,
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Royal,
-    onPrimary = Color.White,
-    secondary = Royal,
-    onSecondary = Color.White,
-    tertiary = Emerald,
-    onTertiary = Color.White,
-    background = NearBlack,
+    primary = NeonGreen,
+    onPrimary = Color(0xFF052E16),
+    secondary = NeonGreen,
+    onSecondary = Color(0xFF052E16),
+    tertiary = NeonGreen,
+    onTertiary = Color(0xFF052E16),
+    background = CryptoBg,
     onBackground = Color(0xFFF8FAFC),
-    surface = Color(0xFF111113),
+    surface = CryptoSurface,
     onSurface = Color(0xFFF8FAFC),
+    surfaceVariant = CryptoSurfaceAlt,
+    onSurfaceVariant = CryptoMuted,
+    outline = CryptoOutline,
     error = Color(0xFFF87171),
-    onError = NearBlack,
+    onError = CryptoBg,
 )
 
 private val AppTypography = Typography(
@@ -60,16 +69,16 @@ private val AppTypography = Typography(
     titleMedium = TextStyle(fontFamily = PosFont, fontWeight = FontWeight.SemiBold, fontSize = 16.sp),
     bodyLarge = TextStyle(fontFamily = PosFont, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp),
     bodyMedium = TextStyle(fontFamily = PosFont, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
-    labelLarge = TextStyle(fontFamily = PosFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+    labelLarge = TextStyle(fontFamily = PosFont, fontWeight = FontWeight.SemiBold, fontSize = 15.sp),
 )
 
 @Composable
 fun CryptoPosTheme(
-    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    themeMode: ThemeMode = ThemeMode.DARK,
     content: @Composable () -> Unit,
 ) {
     val darkTheme = when (themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.SYSTEM -> true // POS product UI is dark-first (matches CryptoPos mockups)
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }

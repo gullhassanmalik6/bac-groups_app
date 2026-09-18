@@ -116,4 +116,9 @@ class TerminalProcessingViewModel @Inject constructor(
     fun finish() {
         sessionManager.clear()
     }
+
+    fun cancel() {
+        sessionManager.cancel()
+        sessionManager.clear()
+    }
 }

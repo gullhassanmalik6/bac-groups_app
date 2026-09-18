@@ -10,6 +10,7 @@ import com.cryptopos.pos.domain.processor.ProcessorAuthorizeRequest
 import com.cryptopos.pos.domain.processor.ProcessorCaptureRequest
 import com.cryptopos.pos.domain.processor.ProcessorCompleteRequest
 import com.cryptopos.pos.domain.processor.ProcessorStatus
+import com.cryptopos.pos.domain.protocol.ProtocolExecutionGuard
 import com.cryptopos.pos.domain.protocol.ProtocolProfileCatalog
 import com.cryptopos.pos.domain.repository.HistoryRepository
 import javax.inject.Inject
@@ -39,6 +40,15 @@ class TerminalPaymentOrchestrator @Inject constructor(
         if (session.state != TerminalTransactionState.PROTOCOL_SELECTED) {
             return TerminalSessionResult.Err(
                 "Authorize requires PROTOCOL_SELECTED (was ${session.state})",
+                session,
+            )
+        }
+        val profile = session.protocolId?.let { protocolCatalog.get(it) }
+            ?: session.protocolCode?.let { protocolCatalog.get(it) }
+        val documented = profile?.documented == true
+        if (!ProtocolExecutionGuard.allowSandboxSimulation(session.environment, documented)) {
+            return TerminalSessionResult.Err(
+                ProtocolExecutionGuard.PROVIDER_CONFIGURATION_REQUIRED,
                 session,
             )
         }

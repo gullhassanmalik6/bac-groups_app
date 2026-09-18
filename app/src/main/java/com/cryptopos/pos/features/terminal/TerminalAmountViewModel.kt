@@ -1,7 +1,10 @@
 package com.cryptopos.pos.features.terminal
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import com.cryptopos.pos.domain.model.ProtocolProfile
 import com.cryptopos.pos.domain.model.TerminalTransactionType
+import com.cryptopos.pos.domain.protocol.ProtocolProfileCatalog
 import com.cryptopos.pos.domain.terminal.TerminalSessionManager
 import com.cryptopos.pos.domain.terminal.TerminalSessionResult
 import com.cryptopos.pos.domain.terminal.TerminalTransactionState
@@ -14,8 +17,10 @@ import javax.inject.Inject
 
 data class TerminalAmountUiState(
     val amount: String = "",
-    val currency: String = "CAD",
+    val currency: String = "USD",
     val transactionType: TerminalTransactionType = TerminalTransactionType.SALE,
+    val protocolId: String? = null,
+    val protocol: ProtocolProfile? = null,
     val sessionState: TerminalTransactionState? = null,
     val sessionId: String? = null,
     val error: String? = null,
@@ -23,25 +28,19 @@ data class TerminalAmountUiState(
 
 @HiltViewModel
 class TerminalAmountViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val sessionManager: TerminalSessionManager,
+    private val protocolCatalog: ProtocolProfileCatalog,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(TerminalAmountUiState())
+    private val protocolId: String = savedStateHandle.get<String>("protocolId").orEmpty()
+
+    private val _state = MutableStateFlow(
+        TerminalAmountUiState(
+            protocolId = protocolId.ifBlank { null },
+            protocol = protocolId.takeIf { it.isNotBlank() }?.let { protocolCatalog.get(it) },
+        ),
+    )
     val state: StateFlow<TerminalAmountUiState> = _state
-
-    init {
-        beginSession()
-    }
-
-    fun beginSession() {
-        val session = sessionManager.startNewSession()
-        _state.update {
-            it.copy(
-                sessionState = session.state,
-                sessionId = session.id,
-                error = null,
-            )
-        }
-    }
 
     fun setCurrency(code: String) {
         _state.update { it.copy(currency = code, error = null) }
@@ -49,6 +48,10 @@ class TerminalAmountViewModel @Inject constructor(
 
     fun setTransactionType(type: TerminalTransactionType) {
         _state.update { it.copy(transactionType = type, error = null) }
+    }
+
+    fun setQuickAmount(value: String) {
+        _state.update { it.copy(amount = value, error = null) }
     }
 
     fun appendDigit(digit: String) {
@@ -72,7 +75,7 @@ class TerminalAmountViewModel @Inject constructor(
     }
 
     /**
-     * Validates UI amount and advances state machine: CREATED → AMOUNT_ENTERED.
+     * CREATED → AMOUNT_ENTERED → PROTOCOL_SELECTED (mockup order is protocol→amount in UI).
      */
     fun commitAmount(): Boolean {
         val ui = _state.value
@@ -81,23 +84,32 @@ class TerminalAmountViewModel @Inject constructor(
             _state.update { it.copy(error = "Enter an amount greater than zero") }
             return false
         }
-        // Fresh CREATED session so re-entry after Back always works.
+        val protocolKey = ui.protocolId
+        if (protocolKey.isNullOrBlank()) {
+            _state.update { it.copy(error = "Select a transaction protocol") }
+            return false
+        }
         sessionManager.startNewSession()
-        return when (
-            val result = sessionManager.enterAmount(ui.amount, ui.currency, ui.transactionType)
-        ) {
+        when (val amountResult = sessionManager.enterAmount(ui.amount, ui.currency, ui.transactionType)) {
+            is TerminalSessionResult.Err -> {
+                _state.update { it.copy(error = amountResult.message) }
+                return false
+            }
+            is TerminalSessionResult.Ok -> Unit
+        }
+        return when (val protocolResult = sessionManager.selectProtocol(protocolKey)) {
             is TerminalSessionResult.Ok -> {
                 _state.update {
                     it.copy(
-                        sessionState = result.session.state,
-                        sessionId = result.session.id,
+                        sessionState = protocolResult.session.state,
+                        sessionId = protocolResult.session.id,
                         error = null,
                     )
                 }
                 true
             }
             is TerminalSessionResult.Err -> {
-                _state.update { it.copy(error = result.message) }
+                _state.update { it.copy(error = protocolResult.message) }
                 false
             }
         }

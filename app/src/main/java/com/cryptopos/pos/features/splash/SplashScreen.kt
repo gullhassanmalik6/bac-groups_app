@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cryptopos.pos.R
+import com.cryptopos.pos.core.theme.CryptoBg
+import com.cryptopos.pos.core.theme.NeonGreen
 import kotlinx.coroutines.delay
 
 @Composable
@@ -39,7 +41,7 @@ fun SplashRoute(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.primary),
+            .background(CryptoBg),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -47,12 +49,12 @@ fun SplashRoute(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.tertiary),
+                    .background(NeonGreen),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "CP",
-                    color = MaterialTheme.colorScheme.onTertiary,
+                    text = "C",
+                    color = MaterialTheme.colorScheme.onPrimary,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -60,12 +62,12 @@ fun SplashRoute(
             Spacer(modifier = Modifier.height(20.dp))
             Text(
                 text = stringResource(R.string.app_name),
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = MaterialTheme.colorScheme.onBackground,
                 style = MaterialTheme.typography.headlineLarge,
             )
             Text(
                 text = stringResource(R.string.splash_tagline),
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
             )
         }

@@ -50,7 +50,7 @@ class TokenAuthenticator @Inject constructor(
                 .header("Authorization", "Bearer ${tokens.accessToken}")
                 .build()
         } catch (_: Exception) {
-            runBlocking { sessionStore.clear() }
+            runBlocking { sessionStore.clearSession() }
             null
         }
     }

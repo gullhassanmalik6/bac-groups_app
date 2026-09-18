@@ -1,5 +1,7 @@
 package com.cryptopos.pos.di
 
+import com.cryptopos.pos.data.local.datastore.RememberedLoginStore
+import com.cryptopos.pos.data.local.datastore.SecureSessionStore
 import com.cryptopos.pos.data.repository.AuthRepositoryImpl
 import com.cryptopos.pos.data.repository.HistoryRepositoryImpl
 import com.cryptopos.pos.data.repository.MerchantRepositoryImpl
@@ -23,6 +25,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    @Binds
+    @Singleton
+    abstract fun bindRememberedLoginStore(impl: SecureSessionStore): RememberedLoginStore
+
     @Binds
     @Singleton
     abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository

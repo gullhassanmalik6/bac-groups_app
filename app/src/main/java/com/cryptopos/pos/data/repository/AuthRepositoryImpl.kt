@@ -50,7 +50,8 @@ class AuthRepositoryImpl @Inject constructor(
         if (!refresh.isNullOrBlank()) {
             runCatching { api.logout(RefreshRequestDto(refresh)) }
         }
-        session.clear()
+        // Keep optional "save for this device" credentials + device id.
+        session.clearSession()
     }
 
     override suspend fun currentUserName(): String? = session.userName.first()

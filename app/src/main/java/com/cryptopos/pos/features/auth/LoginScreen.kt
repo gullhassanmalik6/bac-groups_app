@@ -2,20 +2,25 @@ package com.cryptopos.pos.features.auth
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -38,10 +43,12 @@ fun LoginRoute(
     LoginScreenContent(
         email = state.email,
         password = state.password,
+        rememberDevice = state.rememberDevice,
         loading = state.loading,
         error = state.error,
         onEmailChange = viewModel::onEmailChange,
         onPasswordChange = viewModel::onPasswordChange,
+        onRememberDeviceChange = viewModel::onRememberDeviceChange,
         onLogin = viewModel::login,
     )
 }
@@ -51,10 +58,12 @@ fun LoginRoute(
 fun LoginScreenContent(
     email: String,
     password: String,
+    rememberDevice: Boolean = false,
     loading: Boolean,
     error: String?,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
+    onRememberDeviceChange: (Boolean) -> Unit = {},
     onLogin: () -> Unit,
 ) {
     Column(
@@ -89,6 +98,28 @@ fun LoginScreenContent(
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = rememberDevice,
+                    role = Role.Checkbox,
+                    onValueChange = onRememberDeviceChange,
+                )
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(
+                checked = rememberDevice,
+                onCheckedChange = null,
+            )
+            Text(
+                text = stringResource(R.string.save_for_this_device),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 4.dp),
+            )
+        }
         if (error != null) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(error, color = MaterialTheme.colorScheme.error)

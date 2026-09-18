@@ -22,16 +22,19 @@ class LoginScreenTest {
                 LoginScreenContent(
                     email = "",
                     password = "",
+                    rememberDevice = false,
                     loading = false,
                     error = null,
                     onEmailChange = {},
                     onPasswordChange = {},
+                    onRememberDeviceChange = {},
                     onLogin = {},
                 )
             }
         }
         composeRule.onNodeWithText("Welcome back").assertIsDisplayed()
         composeRule.onNodeWithText("Email").assertIsDisplayed()
+        composeRule.onNodeWithText("Save for this device").assertIsDisplayed()
         composeRule.onNodeWithText("Sign in").assertIsDisplayed()
     }
 }

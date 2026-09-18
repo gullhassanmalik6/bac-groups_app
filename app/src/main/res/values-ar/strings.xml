@@ -6,6 +6,7 @@
     <string name="email">البريد الإلكتروني</string>
     <string name="password">كلمة المرور</string>
     <string name="sign_in">تسجيل الدخول</string>
+    <string name="save_for_this_device">حفظ على هذا الجهاز</string>
     <string name="dashboard">لوحة التحكم</string>
     <string name="today_sales">اليوم</string>
     <string name="week_sales">هذا الأسبوع</string>
