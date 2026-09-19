@@ -28,7 +28,7 @@ class TerminalReceiptFactory @Inject constructor() {
         context: ReceiptContext = ReceiptContext(),
         copy: ReceiptCopy = ReceiptCopy.CUSTOMER,
     ): TerminalReceipt {
-        val currency = session.currency ?: "CAD"
+        val currency = session.currency ?: "USD"
         val amount = session.amountRaw ?: "0.00"
         val method = listOfNotNull(
             session.cardBrand?.uppercase(),
@@ -131,7 +131,7 @@ class TerminalReceiptFactory @Inject constructor() {
     }
 
     companion object {
-        const val DEFAULT_MERCHANT = "DEMO MERCHANT"
+        const val DEFAULT_MERCHANT = "Bonyan Advanced Contracting"
     }
 }
 

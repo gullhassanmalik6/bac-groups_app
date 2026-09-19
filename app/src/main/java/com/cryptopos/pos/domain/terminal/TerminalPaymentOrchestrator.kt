@@ -1,5 +1,6 @@
 package com.cryptopos.pos.domain.terminal
 
+import com.cryptopos.pos.BuildConfig
 import com.cryptopos.pos.data.repository.TerminalRemoteGateway
 import com.cryptopos.pos.domain.error.PosError
 import com.cryptopos.pos.domain.error.toPosError
@@ -18,6 +19,7 @@ import javax.inject.Singleton
 
 /**
  * Prefer backend terminal session APIs (Phase 5/6). Fall back to on-device [PaymentProcessor] if remote fails.
+ * Production never dummy-approves undocumented protocol catalog labels.
  */
 @Singleton
 class TerminalPaymentOrchestrator @Inject constructor(
@@ -43,10 +45,13 @@ class TerminalPaymentOrchestrator @Inject constructor(
                 session,
             )
         }
+
         val profile = session.protocolId?.let { protocolCatalog.get(it) }
-            ?: session.protocolCode?.let { protocolCatalog.get(it) }
+            ?: session.protocolCode?.let { code ->
+                protocolCatalog.all().firstOrNull { it.code == code }
+            }
         val documented = profile?.documented == true
-        if (!ProtocolExecutionGuard.allowSandboxSimulation(session.environment, documented)) {
+        if (!ProtocolExecutionGuard.allowSandboxSimulation(BuildConfig.PAYMENT_ENVIRONMENT, documented)) {
             return TerminalSessionResult.Err(
                 ProtocolExecutionGuard.PROVIDER_CONFIGURATION_REQUIRED,
                 session,
@@ -58,10 +63,9 @@ class TerminalPaymentOrchestrator @Inject constructor(
                 runRemoteAuthorization(session, paymentMethodToken, scenarioOverride)
             }
             remote.getOrNull()?.let { return it }
-            // Fall through to local mock if remote failed (API not deployed / offline).
             val err = remote.exceptionOrNull()?.toPosError()
             if (err is PosError.Server || err is PosError.Gateway) {
-                // Keep trying local; annotate message later.
+                // Fall through to local mock.
             }
         }
 

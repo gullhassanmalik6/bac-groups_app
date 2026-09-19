@@ -1,100 +1,87 @@
 package com.cryptopos.pos.domain.receipt
 
+/**
+ * Thermal / on-screen receipt. Never includes PAN, CVV, PIN, track, or private keys.
+ * ARN / ISO network fields stay "not configured" until a licensed provider supplies them.
+ */
 enum class ReceiptCopy {
     CUSTOMER,
     MERCHANT,
 }
 
-/**
- * Thermal receipt for sandbox terminal sessions.
- *
- * Layout follows client screenshots. Values that a licensed acquirer would
- * supply (ARN, ISO DE18/DE25, payout confirmation) are **not invented**.
- */
 data class TerminalReceipt(
     val merchantName: String,
-    val copy: ReceiptCopy,
+    val copy: ReceiptCopy = ReceiptCopy.CUSTOMER,
     val transactionId: String,
     val amountDisplay: String,
     val currency: String,
     val paymentMethod: String,
-    val cardBrand: String?,
-    val cardLast4: String?,
+    val cardBrand: String? = null,
+    val cardLast4: String? = null,
     val statusLine: String,
     val authorizationCode: String?,
     val reference: String?,
     val protocol: String?,
     val environment: String,
     val dateDisplay: String,
-    val connectionMode: String,
-    val maskedEmail: String,
-    val payoutNetwork: String,
-    val maskedWallet: String,
-    val isoFields: String,
-    val feeLine: String,
-    val qrPayload: String,
+    val connectionMode: String = "SANDBOX",
+    val maskedEmail: String? = null,
+    val payoutNetwork: String? = null,
+    val maskedWallet: String? = null,
+    /** Never invent DE18/DE25 — provider schema only. */
+    val isoFields: String = "not configured",
+    val feeLine: String? = null,
+    val qrPayload: String? = null,
     val printerName: String? = null,
+    val terminalLabel: String = "POS",
 ) {
-    fun forCopy(copy: ReceiptCopy): TerminalReceipt = copy(copy = copy)
-
     fun toPrintLines(): List<String> = buildList {
         add(SEPARATOR)
+        add(center(copyLabel()))
         add(center(merchantName.uppercase()))
-        add(center(copyBanner()))
         add(SEPARATOR)
-        add(center("SANDBOX — NOT REAL FUNDS"))
-        add("")
         add(kv("DATE", dateDisplay))
-        add(kv("TXN ID", transactionId.take(18)))
-        add(kv("ARN", arnDisplay()))
-        add(kv("TERMINAL", "POS"))
+        add(kv("TXN ID", transactionId))
+        add(kv("ARN", "not configured"))
+        add(kv("TERMINAL", terminalLabel))
         add(kv("CONNECTION", connectionMode))
-        add(kv("EMAIL", maskedEmail))
-        add(kv("PROTOCOL", protocol.orEmpty().ifBlank { "—" }))
+        if (!maskedEmail.isNullOrBlank()) add(kv("EMAIL", maskedEmail))
+        if (!protocol.isNullOrBlank()) add(kv("PROTOCOL", protocol))
         add(kv("CARD", maskedCard()))
-        add(kv("CARD TYPE", cardBrand?.uppercase() ?: "—"))
-        add(kv("AMOUNT", "$currency $amountDisplay".trim()))
-        add(kv("PAYOUT", payoutNetwork))
-        add(kv("WALLET", maskedWallet))
-        add(kv("AUTH CODE", authDisplay()))
+        if (!cardBrand.isNullOrBlank()) add(kv("CARD TYPE", cardBrand.uppercase()))
+        add("")
+        add(kv("AMOUNT", "${currency.uppercase()} $amountDisplay"))
+        if (!payoutNetwork.isNullOrBlank()) add(kv("PAYOUT", payoutNetwork))
+        if (!maskedWallet.isNullOrBlank()) add(kv("WALLET", maskedWallet))
+        add(kv("AUTH CODE", authorizationCode?.takeIf { it.isNotBlank() } ?: "not configured"))
+        if (!reference.isNullOrBlank()) add(kv("REFERENCE", reference))
         add(kv("ISO 18 / 25", isoFields))
         add(kv("STATUS", statusLine))
         add("")
         add(center("Signature"))
         add("")
-        add(feeLine)
-        add("")
-        add("QR REF")
-        add(qrPayload)
-        add("")
-        add(SEPARATOR)
-        add(center("NOT SETTLED"))
-        add(center("PAYOUT NOT CONFIRMED"))
-        add(center("${environment.uppercase()} TRANSACTION"))
-        add(SEPARATOR)
-    }
-
-    private fun copyBanner(): String =
-        if (copy == ReceiptCopy.CUSTOMER) "CUSTOMER COPY" else "MERCHANT COPY"
-
-    private fun arnDisplay(): String {
-        val ref = reference?.trim().orEmpty()
-        return if (ref.startsWith("sbx_") || ref.startsWith("TEST") || ref.isBlank()) {
-            "SANDBOX (no ARN)"
-        } else {
-            ref.take(18)
+        feeLine?.takeIf { it.isNotBlank() }?.let {
+            add(it)
+            add("")
         }
+        if (!qrPayload.isNullOrBlank()) {
+            add(center("QR (sandbox receipt ref)"))
+            add(center(qrPayload.take(32)))
+            add("")
+        }
+        add(SEPARATOR)
+        add(center("${environment.uppercase()} — NO REAL FUNDS"))
+        add(SEPARATOR)
     }
 
-    private fun authDisplay(): String {
-        val code = authorizationCode?.trim().orEmpty()
-        return if (code.isBlank()) "SANDBOX (none)" else code.take(16)
+    private fun copyLabel(): String = when (copy) {
+        ReceiptCopy.CUSTOMER -> "CUSTOMER COPY"
+        ReceiptCopy.MERCHANT -> "MERCHANT COPY"
     }
 
-    private fun maskedCard(): String {
-        val last4 = cardLast4?.filter { it.isDigit() }.orEmpty()
-        return if (last4.length == 4) "•••• •••• •••• $last4" else paymentMethod
-    }
+    private fun maskedCard(): String =
+        cardLast4?.let { "**** **** **** $it" }
+            ?: paymentMethod.ifBlank { "TOKENIZED" }
 
     companion object {
         const val SEPARATOR = "--------------------------------"
@@ -107,27 +94,32 @@ data class TerminalReceipt(
         }
 
         fun kv(label: String, value: String): String {
-            val left = label.uppercase()
-            val right = value.ifBlank { "—" }
-            val spaces = (WIDTH - left.length - right.length).coerceAtLeast(1)
-            val line = left + " ".repeat(spaces) + right
-            return if (line.length <= WIDTH) line else (left + " " + right).take(WIDTH)
+            val left = "$label:"
+            val space = (WIDTH - left.length - value.length).coerceAtLeast(1)
+            val line = left + " ".repeat(space) + value
+            return if (line.length <= WIDTH) line else "$left\n$value"
         }
 
-        fun maskEmail(email: String?): String {
-            val value = email?.trim().orEmpty()
-            val at = value.indexOf('@')
-            if (at <= 0 || at == value.lastIndex) return "••••@••••"
-            return value.first() + "••••@" + value.substring(at + 1)
+        fun maskEmail(email: String?): String? {
+            if (email.isNullOrBlank()) return null
+            val at = email.indexOf('@')
+            if (at <= 0) return "••••@••••"
+            val user = email.substring(0, at)
+            val domain = email.substring(at)
+            val maskedUser = when {
+                user.length == 1 -> "${user[0]}••••"
+                else -> "${user[0]}••••"
+            }
+            return maskedUser + domain
         }
 
-        fun maskWallet(address: String?): String {
-            val value = address?.trim().orEmpty()
-            if (value.length < 10) return "not configured"
-            return value.take(5) + "••••" + value.takeLast(4)
+        fun maskWallet(address: String?): String? {
+            if (address.isNullOrBlank()) return null
+            if (address.length < 10) return "••••"
+            return address.take(5) + "••••" + address.takeLast(4)
         }
 
         fun sandboxQr(transactionId: String): String =
-            "cryptopos://sandbox-receipt/$transactionId"
+            "sbx-receipt:$transactionId"
     }
 }

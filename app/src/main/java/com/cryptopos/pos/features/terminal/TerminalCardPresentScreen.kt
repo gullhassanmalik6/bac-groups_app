@@ -44,10 +44,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cryptopos.pos.R
-import com.cryptopos.pos.core.theme.NeonGreen
+import com.cryptopos.pos.core.theme.Emerald
 import com.cryptopos.pos.core.ui.components.PosSecondaryButton
 import com.cryptopos.pos.features.payment.SecureWindowEffect
 import kotlinx.coroutines.delay
+
+private val AccentGreen = Emerald
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,7 +115,7 @@ fun TerminalCardPresentRoute(
                     if (tab < positions.size) {
                         TabRowDefaults.SecondaryIndicator(
                             modifier = Modifier.tabIndicatorOffset(positions[tab]),
-                            color = NeonGreen,
+                            color = AccentGreen,
                             height = 3.dp,
                         )
                     }
@@ -129,7 +131,7 @@ fun TerminalCardPresentRoute(
                         text = {
                             Text(
                                 title,
-                                color = if (tab == index) NeonGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (tab == index) AccentGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = if (tab == index) FontWeight.SemiBold else FontWeight.Normal,
                             )
                         },
@@ -149,7 +151,7 @@ fun TerminalCardPresentRoute(
                     Icon(
                         imageVector = Icons.Outlined.Contactless,
                         contentDescription = null,
-                        tint = NeonGreen,
+                        tint = AccentGreen,
                         modifier = Modifier.size(48.dp),
                     )
                     Spacer(Modifier.height(12.dp))

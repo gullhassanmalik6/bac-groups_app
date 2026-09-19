@@ -50,7 +50,7 @@ class MainActivity : FragmentActivity() {
 
         val themeMode = settingsRepository.settings
             .map { it.themeMode }
-            .stateIn(lifecycleScope, SharingStarted.Eagerly, ThemeMode.DARK)
+            .stateIn(lifecycleScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
 
         lifecycleScope.launch {
             settingsRepository.settings.collect { settings ->

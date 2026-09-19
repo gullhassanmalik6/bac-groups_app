@@ -127,6 +127,16 @@
     <string name="processor_ref_label">المرجع: %1$s</string>
     <string name="signature_required_note">التوقيع مطلوب (تجريبي)</string>
     <string name="sandbox_no_real_money">وضع التجربة — لم تُحرَّك أموال بطاقة حقيقية.</string>
+    <string name="customer_copy">نسخة العميل</string>
+    <string name="merchant_copy">نسخة التاجر</string>
+    <string name="print_both_copies">طباعة النسختين</string>
+    <string name="tab_card">بطاقة</string>
+    <string name="tab_tap_insert">لمس / إدخال</string>
+    <string name="tab_manual">يدوي</string>
+    <string name="payment_method_title">طريقة الدفع</string>
+    <string name="tap_insert_swipe">لمس أو إدخال أو سحب (تجريبي)</string>
+    <string name="use_customer_card">قدّم بطاقة العميل</string>
+    <string name="enter_card_manually">الإدخال اليدوي رمزي فقط في وضع التجربة</string>
     <string name="processor_backend">المعالج: واجهة الخادم</string>
     <string name="processor_local_mock">المعالج: وهمي محلي (احتياطي)</string>
     <string name="refresh">تحديث</string>

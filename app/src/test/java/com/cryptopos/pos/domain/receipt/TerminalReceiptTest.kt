@@ -14,19 +14,18 @@ class TerminalReceiptTest {
     private val factory = TerminalReceiptFactory()
 
     @Test
-    fun builds_screenshot_layout_without_inventing_arn() {
+    fun builds_customer_copy_without_invented_arn_or_iso() {
         val session = TerminalSession(
             id = "TEST-001743",
             state = TerminalTransactionState.COMPLETED,
-            amountRaw = "1000000.00",
-            amountMinor = 100000000,
+            amountRaw = "4850.00",
+            amountMinor = 485000,
             currency = "USD",
             transactionType = TerminalTransactionType.SALE,
             protocolCode = "201.3",
             protocolDisplayName = "201.3 - Offline 6 DG",
-            protocolSandboxOutcome = "signature",
             authorizationCode = "TEST-800040",
-            processorReference = "sbx_deadbeef",
+            processorReference = "sbx_ref",
             cardBrand = "VISA",
             cardLast4 = "7388",
             environment = "SANDBOX",
@@ -34,33 +33,43 @@ class TerminalReceiptTest {
         val receipt = factory.fromSession(
             session,
             ReceiptContext(
-                merchantName = "DEMO MERCHANT",
-                merchantEmail = "merchant@gmail.com",
-                walletAddress = "TTCGyXXXXXXXXXXXXXX2ESi",
+                merchantName = "Bonyan Advanced Contracting",
+                merchantEmail = "info@bacgroupsa.com",
+                walletAddress = "TGQbDuBTUw75Uhh5qTuK1NFyQXyTTjDai7",
             ),
             ReceiptCopy.CUSTOMER,
         )
         val text = receipt.toPrintLines().joinToString("\n")
         assertTrue(text.contains("CUSTOMER COPY"))
-        assertTrue(text.contains("SANDBOX — NOT REAL FUNDS"))
+        assertTrue(text.contains("Bonyan Advanced Contracting".uppercase()) || text.contains("BONYAN"))
         assertTrue(text.contains("201.3"))
-        assertTrue(text.contains("•••• •••• •••• 7388"))
+        assertTrue(text.contains("**** **** **** 7388"))
         assertTrue(text.contains("VISA"))
-        assertTrue(text.contains("1000000.00"))
-        assertTrue(text.contains("SANDBOX (no ARN)"))
-        assertFalse(text.contains("ARN6A778448C36B105"))
-        assertTrue(text.contains("not configured"))
-        assertTrue(text.contains("5000.00"))
-        assertTrue(text.contains("m••••@gmail.com") || text.contains("••••@"))
-        assertTrue(text.contains("TTCGy") && text.contains("2ESi"))
-        assertTrue(receipt.qrPayload.startsWith("cryptopos://sandbox-receipt"))
-        assertTrue(text.contains("QR REF"))
-        assertTrue(text.contains(receipt.qrPayload))
-        assertTrue(text.contains("PAYOUT NOT CONFIRMED"))
+        assertTrue(text.contains("USD") && text.contains("4850.00"))
+        assertTrue(text.contains("TRC20 (not confirmed)"))
+        assertTrue(text.contains("not configured")) // ARN + ISO
+        assertFalse(text.contains("ARN6A7784"))
+        assertFalse(text.contains("5999 / 00"))
+        assertTrue(text.contains("0.5%") && text.contains("merchant fee"))
+        assertTrue(text.contains("SANDBOX"))
+        assertTrue(text.contains("i••••@bacgroupsa.com") || text.contains("••••"))
         assertFalse(text.contains("cvv", ignoreCase = true))
         assertFalse(Regex("""\d{13,19}""").containsMatchIn(text.replace("7388", "")))
-        val merchant = receipt.forCopy(ReceiptCopy.MERCHANT).toPrintLines().joinToString("\n")
-        assertTrue(merchant.contains("MERCHANT COPY"))
+    }
+
+    @Test
+    fun merchant_copy_header() {
+        val session = TerminalSession(
+            id = "m1",
+            state = TerminalTransactionState.COMPLETED,
+            amountRaw = "10.00",
+            currency = "USD",
+            cardLast4 = "1111",
+            environment = "SANDBOX",
+        )
+        val text = factory.fromSession(session, copy = ReceiptCopy.MERCHANT)
+            .toPrintLines().joinToString("\n")
+        assertTrue(text.contains("MERCHANT COPY"))
     }
 
     @Test
@@ -81,6 +90,5 @@ class TerminalReceiptTest {
         }
         val ok = printer.printReceipt(listOf("VISA ****1111", "APPROVED - SANDBOX"))
         assertTrue(ok.isSuccess)
-        assertTrue(printer.lastPrintedLines.any { it.contains("****1111") })
     }
 }

@@ -7,6 +7,20 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+import java.util.Properties
+
+// Override in local.properties (not committed), e.g.:
+// api.base.url=http://192.168.1.10:8000/api/v1/
+// Until api.bacgroupsa.com DNS + Railway API are live, debug must use a reachable host.
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val apiBaseUrlOverride: String? = localProps.getProperty("api.base.url")?.trim()?.takeIf { it.isNotEmpty() }
+val productionApiBaseUrl = "https://api.bacgroupsa.com/api/v1/"
+// Emulator → host machine. Physical device: set api.base.url in local.properties to your PC LAN IP.
+val debugApiBaseUrl = apiBaseUrlOverride ?: "http://10.0.2.2:8000/api/v1/"
+
 android {
     namespace = "com.cryptopos.pos"
     compileSdk = 35
@@ -18,9 +32,7 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // Railway API until api.bacgroupsa.com DNS CNAME is configured.
-        // Emulator local backend: temporarily use http://10.0.2.2:8000/api/v1/
-        buildConfigField("String", "API_BASE_URL", "\"https://bac-groupsbackend-production.up.railway.app/api/v1/\"")
+        buildConfigField("String", "API_BASE_URL", "\"$productionApiBaseUrl\"")
         // Comma-separated sha256/ pins; empty disables pinning until ops provisions pins.
         // Example: "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         buildConfigField("String", "CERT_PINS", "\"\"")
@@ -41,14 +53,15 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            buildConfigField("String", "API_BASE_URL", "\"https://bac-groupsbackend-production.up.railway.app/api/v1/\"")
+            // Keep production hostname. Do not bake LAN overrides into release APKs.
+            buildConfigField("String", "API_BASE_URL", "\"$productionApiBaseUrl\"")
             // Set real pins before production rollout; empty keeps DEFAULT pinner.
             buildConfigField("String", "CERT_PINS", "\"\"")
             buildConfigField("boolean", "ENFORCE_DEVICE_INTEGRITY", "true")
         }
         debug {
-            // Same production API so physical phones (not only emulator) can sign in
-            buildConfigField("String", "API_BASE_URL", "\"https://bac-groupsbackend-production.up.railway.app/api/v1/\"")
+            // Do not point debug at api.bacgroupsa.com until DNS resolves — login fails with UnknownHost.
+            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
             buildConfigField("boolean", "ENFORCE_DEVICE_INTEGRITY", "false")
         }
     }

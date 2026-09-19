@@ -7,7 +7,6 @@ import com.cryptopos.pos.domain.receipt.ReceiptContext
 import com.cryptopos.pos.domain.receipt.ReceiptCopy
 import com.cryptopos.pos.domain.receipt.TerminalReceipt
 import com.cryptopos.pos.domain.receipt.TerminalReceiptFactory
-import com.cryptopos.pos.domain.repository.AuthRepository
 import com.cryptopos.pos.domain.repository.HistoryRepository
 import com.cryptopos.pos.domain.repository.MerchantRepository
 import com.cryptopos.pos.domain.terminal.TerminalSession
@@ -17,7 +16,6 @@ class BuildTerminalReceiptUseCase @Inject constructor(
     private val factory: TerminalReceiptFactory,
     private val merchantRepository: MerchantRepository,
     private val historyRepository: HistoryRepository,
-    private val authRepository: AuthRepository,
 ) {
     suspend fun fromSession(
         session: TerminalSession,
@@ -29,9 +27,13 @@ class BuildTerminalReceiptUseCase @Inject constructor(
         copy: ReceiptCopy = ReceiptCopy.CUSTOMER,
     ): TerminalReceipt = factory.fromHistory(item, receiptContext(), copy)
 
-    suspend fun fromHistoryId(source: HistorySource, id: String): TerminalReceipt {
+    suspend fun fromHistoryId(
+        source: HistorySource,
+        id: String,
+        copy: ReceiptCopy = ReceiptCopy.CUSTOMER,
+    ): TerminalReceipt {
         val item = historyRepository.get(source, id) ?: error("Transaction not found")
-        return fromHistoryItem(item)
+        return fromHistoryItem(item, copy)
     }
 
     private suspend fun receiptContext(): ReceiptContext {
@@ -40,12 +42,10 @@ class BuildTerminalReceiptUseCase @Inject constructor(
             merchantRepository.getWallets().firstOrNull { it.isPrimary }
                 ?: merchantRepository.getWallets().firstOrNull()
         }.getOrNull()
-        val email = merchant?.email?.takeIf { it.isNotBlank() }
-            ?: authRepository.currentUserEmail()
         return ReceiptContext(
             merchantName = merchant?.companyName?.takeIf { it.isNotBlank() }
                 ?: TerminalReceiptFactory.DEFAULT_MERCHANT,
-            merchantEmail = email,
+            merchantEmail = merchant?.email,
             walletAddress = wallet?.address,
             payoutNetwork = wallet?.network?.ifBlank { "TRC20" } ?: "TRC20",
         )
@@ -57,38 +57,51 @@ class PrintTerminalReceiptUseCase @Inject constructor(
     private val printer: PrinterAdapter,
     private val historyRepository: HistoryRepository,
 ) {
-    suspend fun printSession(session: TerminalSession): Result<TerminalReceipt> = runCatching {
+    suspend fun printSession(
+        session: TerminalSession,
+        copy: ReceiptCopy = ReceiptCopy.CUSTOMER,
+    ): Result<TerminalReceipt> = runCatching {
+        val receipt = buildReceipt.fromSession(session, copy)
         printer.connect().getOrThrow()
-        val customer = buildReceipt.fromSession(session, ReceiptCopy.CUSTOMER)
-        printer.printReceipt(customer.toPrintLines()).getOrThrow()
-        printer.feed()
-        val merchant = buildReceipt.fromSession(session, ReceiptCopy.MERCHANT)
-        printer.printReceipt(merchant.toPrintLines()).getOrThrow()
+        printer.printReceipt(receipt.toPrintLines()).getOrThrow()
         printer.feed()
         runCatching { printer.cut() }
-        merchant.copy(printerName = printer.printerName())
+        receipt.copy(printerName = printer.printerName())
     }
 
-    suspend fun printHistory(source: HistorySource, id: String): Result<TerminalReceipt> = runCatching {
+    suspend fun printHistory(
+        source: HistorySource,
+        id: String,
+        copy: ReceiptCopy = ReceiptCopy.CUSTOMER,
+    ): Result<TerminalReceipt> = runCatching {
         val item = historyRepository.get(source, id) ?: error("Transaction not found")
+        val receipt = buildReceipt.fromHistoryItem(item, copy)
         printer.connect().getOrThrow()
-        val customer = buildReceipt.fromHistoryItem(item, ReceiptCopy.CUSTOMER)
-        printer.printReceipt(customer.toPrintLines()).getOrThrow()
-        printer.feed()
-        val merchant = buildReceipt.fromHistoryItem(item, ReceiptCopy.MERCHANT)
-        printer.printReceipt(merchant.toPrintLines()).getOrThrow()
+        printer.printReceipt(receipt.toPrintLines()).getOrThrow()
         printer.feed()
         runCatching { printer.cut() }
-        merchant.copy(printerName = printer.printerName())
+        receipt.copy(printerName = printer.printerName())
     }
+
+    /** Prints both customer and merchant copies (sandbox honesty). */
+    suspend fun printBothCopies(source: HistorySource, id: String): Result<TerminalReceipt> =
+        runCatching {
+            printHistory(source, id, ReceiptCopy.CUSTOMER).getOrThrow()
+            printHistory(source, id, ReceiptCopy.MERCHANT).getOrThrow()
+        }
 }
 
 class GetTerminalReceiptUseCase @Inject constructor(
     private val buildReceipt: BuildTerminalReceiptUseCase,
 ) {
-    suspend fun fromSession(session: TerminalSession): TerminalReceipt =
-        buildReceipt.fromSession(session)
+    suspend fun fromSession(
+        session: TerminalSession,
+        copy: ReceiptCopy = ReceiptCopy.CUSTOMER,
+    ): TerminalReceipt = buildReceipt.fromSession(session, copy)
 
-    suspend fun fromHistory(source: HistorySource, id: String): TerminalReceipt =
-        buildReceipt.fromHistoryId(source, id)
+    suspend fun fromHistory(
+        source: HistorySource,
+        id: String,
+        copy: ReceiptCopy = ReceiptCopy.CUSTOMER,
+    ): TerminalReceipt = buildReceipt.fromHistoryId(source, id, copy)
 }

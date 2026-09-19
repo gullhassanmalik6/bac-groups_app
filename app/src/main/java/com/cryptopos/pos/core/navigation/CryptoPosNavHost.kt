@@ -26,7 +26,6 @@ import com.cryptopos.pos.features.support.AboutRoute
 import com.cryptopos.pos.features.support.SupportRoute
 import com.cryptopos.pos.features.terminal.ProtocolSelectionRoute
 import com.cryptopos.pos.features.terminal.TerminalAmountRoute
-import com.cryptopos.pos.features.terminal.TerminalCardPresentRoute
 import com.cryptopos.pos.features.terminal.TerminalProcessingRoute
 import com.cryptopos.pos.features.transactions.TransactionDetailRoute
 import com.cryptopos.pos.features.transactions.TransactionsRoute
@@ -43,10 +42,10 @@ object Routes {
     const val Dashboard = "dashboard"
     /** Legacy charge flow (still available). */
     const val Payment = "payment"
-    /** Terminal: protocol → amount → card → authorize → result. */
-    const val TerminalProtocol = "terminal/protocol"
-    const val TerminalAmount = "terminal/amount?protocolId={protocolId}"
-    const val TerminalCard = "terminal/card"
+    /** Terminal: amount → protocol → mock authorize → result. */
+    const val TerminalAmount = "terminal/amount"
+    const val TerminalProtocol =
+        "terminal/protocol?amount={amount}&currency={currency}&txnType={txnType}"
     const val TerminalProcessing = "terminal/processing"
     const val History = "history"
     const val Wallet = "wallet"
@@ -64,8 +63,8 @@ object Routes {
     fun receipt(id: String) = "receipt/$id"
     fun terminalReceipt(id: String) = "terminal/receipt/$id"
 
-    fun terminalAmount(protocolId: String): String =
-        "terminal/amount?protocolId=${Uri.encode(protocolId)}"
+    fun terminalProtocol(amount: String, currency: String, txnType: String): String =
+        "terminal/protocol?amount=${Uri.encode(amount)}&currency=${Uri.encode(currency)}&txnType=${Uri.encode(txnType)}"
 }
 
 @HiltViewModel
@@ -148,7 +147,7 @@ fun CryptoPosNavHost(
         }
         composable(Routes.Dashboard) {
             DashboardRoute(
-                onPay = { navController.navigate(Routes.TerminalProtocol) },
+                onPay = { navController.navigate(Routes.TerminalAmount) },
                 onLegacyPay = { navController.navigate(Routes.Payment) },
                 onHistory = { navController.navigate(Routes.History) },
                 onWallet = { navController.navigate(Routes.Wallet) },
@@ -158,37 +157,34 @@ fun CryptoPosNavHost(
                 onTransaction = { navController.navigate(Routes.transaction(it)) },
             )
         }
-        composable(Routes.TerminalProtocol) {
-            ProtocolSelectionRoute(
-                onContinue = { protocolId ->
-                    navController.navigate(Routes.terminalAmount(protocolId))
+        composable(Routes.TerminalAmount) {
+            TerminalAmountRoute(
+                onContinue = { amount, currency, txnType ->
+                    navController.navigate(Routes.terminalProtocol(amount, currency, txnType))
                 },
-                onHistory = { navController.navigate(Routes.History) },
-                onWallet = { navController.navigate(Routes.Wallet) },
                 onBack = { navController.popBackStack() },
             )
         }
         composable(
-            route = Routes.TerminalAmount,
+            route = Routes.TerminalProtocol,
             arguments = listOf(
-                navArgument("protocolId") { type = NavType.StringType },
+                navArgument("amount") { type = NavType.StringType },
+                navArgument("currency") { type = NavType.StringType },
+                navArgument("txnType") { type = NavType.StringType },
             ),
-        ) {
-            TerminalAmountRoute(
-                onContinue = { navController.navigate(Routes.TerminalCard) },
-                onChangeProtocol = { navController.popBackStack() },
-                onBack = { navController.popBackStack() },
-            )
-        }
-        composable(Routes.TerminalCard) {
-            TerminalCardPresentRoute(
-                onContinue = {
+        ) { entry ->
+            val amount = entry.arguments?.getString("amount").orEmpty()
+            val currency = entry.arguments?.getString("currency") ?: "CAD"
+            val txnType = entry.arguments?.getString("txnType") ?: "SALE"
+            ProtocolSelectionRoute(
+                onContinue = { _ ->
                     navController.navigate(Routes.TerminalProcessing) {
-                        popUpTo(Routes.TerminalProtocol)
+                        popUpTo(Routes.TerminalAmount)
                     }
                 },
+                onHistory = { navController.navigate(Routes.History) },
+                onWallet = { navController.navigate(Routes.Wallet) },
                 onBack = { navController.popBackStack() },
-                onSettings = { navController.navigate(Routes.Settings) },
             )
         }
         composable(Routes.TerminalProcessing) {
@@ -279,14 +275,7 @@ fun CryptoPosNavHost(
             TerminalReceiptRoute(
                 source = HistorySource.TERMINAL,
                 id = id,
-                onDone = {
-                    navController.popBackStack(Routes.Dashboard, inclusive = false)
-                },
-                onNewPayment = {
-                    navController.navigate(Routes.TerminalProtocol) {
-                        popUpTo(Routes.Dashboard)
-                    }
-                },
+                onDone = { navController.popBackStack() },
             )
         }
     }
