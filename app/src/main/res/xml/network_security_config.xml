@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Cleartext only for local/dev backends. Production uses HTTPS. -->
+    <!-- Cleartext only for local emulator/dev. Client/release uses HTTPS api.bacgroupsa.com. -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">10.0.2.2</domain>
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">127.0.0.1</domain>
-        <!-- Current PC LAN IP for Sunmi ↔ local FastAPI debugging -->
-        <domain includeSubdomains="true">192.168.0.46</domain>
     </domain-config>
     <base-config cleartextTrafficPermitted="false" />
 </network-security-config>

@@ -18,8 +18,8 @@ val localProps = Properties().apply {
 }
 val apiBaseUrlOverride: String? = localProps.getProperty("api.base.url")?.trim()?.takeIf { it.isNotEmpty() }
 val productionApiBaseUrl = "https://api.bacgroupsa.com/api/v1/"
-// Emulator → host machine. Physical device: set api.base.url in local.properties to your PC LAN IP.
-val debugApiBaseUrl = apiBaseUrlOverride ?: "http://10.0.2.2:8000/api/v1/"
+// Client/Sunmi target is production. Local-only override via local.properties api.base.url.
+val debugApiBaseUrl = apiBaseUrlOverride ?: productionApiBaseUrl
 
 android {
     namespace = "com.cryptopos.pos"
